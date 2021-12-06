@@ -76,7 +76,7 @@ def data_save(folder, peak):
 
             # 클래스를 이용해서 딕셔너리화
             temp = calc(intensity, wavelength)
-            result = [power, temp.power() / time, temp.fwhm(), temp.peak()]
+            result = [power, temp.power() / time, temp.fwhm(), temp.peak(), 1240 / temp.peak()]
             data.append(result)
 
         except:
@@ -85,7 +85,8 @@ def data_save(folder, peak):
 
     # 파워 오름차순으로 정렬함
     dt_ar = np.array(data)
-    names = ['Excitation Power (mW)', 'light Output Power (a.u.)', 'FWHM (nm)', 'Peak Wavelength (nm)']
+    names = ['Excitation Power (mW)', 'light Output Power (a.u.)', 'FWHM (nm)',
+             'Peak Wavelength (nm)', 'Photon Energy (eV)']
 
     final = pd.DataFrame(dt_ar, columns=names)
     save = final.sort_values(by=final.columns[0])
