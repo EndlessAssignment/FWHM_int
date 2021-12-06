@@ -2,8 +2,6 @@ import pandas as pd
 from glob import glob
 from heapq import nsmallest
 import numpy as np
-from collections import OrderedDict
-
 
 # 반치폭, 반치폭의 광파워, 피크 파장 구하는 클래스
 class calc:
@@ -48,7 +46,7 @@ class calc:
     # 반치폭의 광량을 적분해 리턴하는 함수, 구분구적법 사용
     def power(self):
         for n in range(0, len(self.x_range)):
-            self.sum += self.x_range[n] * self.y_range[n]
+            self.sum += (self.x_range[1] - self.x_range[0]) * self.y_range[n]
         return self.sum
 
     # 피크 파장을 리턴하는 함수
@@ -56,57 +54,45 @@ class calc:
         return self.x_values[self.y_values.index(self.peak_height)]
 
 
-# 파일 경로, 적당히 잘 입력 바람
-file = glob('C:/Users/PJH/Desktop/연구실/실험데이터/211002/400 K/int_cons/*mW.xlsx', recursive=True)
+def data_save(folder, peak):
+    data = []
+    file = glob(folder + '/spec/*mw.xlsx', recursive=True)
+    for i in file:
+        try:
+            df_temp = pd.read_excel(i)
+            df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
+            x = list(df['Filename-->'])  # 파장
+            y = list(df['Unnamed: 1'])  # 인텐시티
 
-data = {}
-for i in file:
-    try:
-        df_temp = pd.read_excel(i)
-        df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
-        x = list(df['Filename-->'])  # 파장
-        y = list(df['Unnamed: 1'])  # 인텐시티
-        point = y.index(min(y[40:350]))  # 적당한 구간에서 최소값을 찾는다, 구간은 상황에 따라 조절바람
+            # 피크 파장 이하에서 최소값을 찾는다
+            approx = nsmallest(1, x, key=lambda x: abs(x-peak))[0]
+            point = y.index(min(y[:x.index(approx)]))
 
-        # 최소값 이후 값들만 LED 광량이라고 추측
-        wavelength = np.array(x[point:])
-        intensity = np.array(y[point:])
-        time = df_temp['Unnamed: 1'][1]  # 적분시간
-        power = float(i[i.index('\\')+1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
+            # 최소값 이후 값들만 LED 광량이라고 추측
+            wavelength = np.array(x[point:])
+            intensity = np.array(y[point:])
+            time = df_temp['Unnamed: 1'][1]  # 적분시간
+            power = float(i[i.index('\\')+1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
 
-        # 클래스를 이용해서 딕셔너리화
-        temp = calc(intensity, wavelength)
-        data[power] = [temp.power() / time, temp.fwhm(), temp.peak()]
-    except:
-        print(i)
+            # 클래스를 이용해서 딕셔너리화
+            temp = calc(intensity, wavelength)
+            result = [power, temp.power() / time, temp.fwhm(), temp.peak()]
+            data.append(result)
 
-# 파워 오름차순으로 정렬함
-arrange = sorted(data.items())
+        except:
+            # 오류 발생시 파워 출력
+            print(i)
 
-# 데이터를 담기 위한 초기 값
-input_power = []
-output_power = []
-full_half = []
-peak_wavelength = []
+    # 파워 오름차순으로 정렬함
+    dt_ar = np.array(data)
+    names = ['Excitation Power (mW)', 'light Output Power (a.u.)', 'FWHM (nm)', 'Peak Wavelength (nm)']
 
-# 정렬한 것을 하나씩 집어 넣는다, 이 과정이 굉장히 더러운데 최적화 시킬 수 있으면 해주기 바람
-for i in arrange:
-    input_power.append(list(i)[0])
-    result = list(list(i)[1])
-    output_power.append(result[0])
-    full_half.append(result[1])
-    peak_wavelength.append(result[2])
+    final = pd.DataFrame(dt_ar, columns=names)
+    save = final.sort_values(by=final.columns[0])
 
-# 데이터 프레임화 시키기 위한 과정, 사실 잘 모르겠음
-final = OrderedDict(
-    [
-        ('Excitation Power (mW)', input_power),
-        ('light Output Power (a.u.)', output_power),
-        ('FWHM (nm)', full_half),
-        ('Peak Wavelength (nm)', peak_wavelength)
-    ]
-)
+    save.to_csv(path + '/data.csv', index=False)
 
-# 데이터 저장
-sex = pd.DataFrame.from_dict(final).set_index('Excitation Power (mW)')
-sex.to_csv('data.csv')
+
+# 파일 경로와 피크 파장, 적당히 잘 입력 바람
+path = 'C:/Users/PJH/Desktop/연구실/실험데이터/PL/211110/RT'
+data_save(path, 450)
