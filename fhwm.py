@@ -3,6 +3,7 @@ from glob import glob
 from heapq import nsmallest
 import numpy as np
 
+
 # 반치폭, 반치폭의 광파워, 피크 파장 구하는 클래스
 class calc:
     def __init__(self, y_values_temp, x_values_temp):
@@ -54,6 +55,7 @@ class calc:
         return self.x_values[self.y_values.index(self.peak_height)]
 
 
+# 불러온 데이터들 저장하는 함수
 def data_save(folder, peak):
     data = []
     file = glob(folder + '/spec/*mw.xlsx', recursive=True)
@@ -74,7 +76,7 @@ def data_save(folder, peak):
             time = df_temp['Unnamed: 1'][1]  # 적분시간
             power = float(i[i.index('\\')+1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
 
-            # 클래스를 이용해서 딕셔너리화
+            # 클래스를 이용해서 리스트화
             temp = calc(intensity, wavelength)
             result = [power, temp.power() / time, temp.fwhm(), temp.peak(), 1240 / temp.peak()]
             data.append(result)
@@ -83,15 +85,17 @@ def data_save(folder, peak):
             # 오류 발생시 파워 출력
             print(i)
 
-    # 파워 오름차순으로 정렬함
-    dt_ar = np.array(data)
+    # 데이터 프레임 화
+    dt_array = np.array(data)
     names = ['Excitation Power (mW)', 'light Output Power (a.u.)', 'FWHM (nm)',
              'Peak Wavelength (nm)', 'Photon Energy (eV)']
+    df_data = pd.DataFrame(dt_array, columns=names)
 
-    final = pd.DataFrame(dt_ar, columns=names)
-    save = final.sort_values(by=final.columns[0])
+    # 파워에 대해 오름차순으로 정렬
+    df_to_save = df_data.sort_values(by=df_data.columns[0])
 
-    save.to_csv(path + '/data.csv', index=False)
+    # 저장
+    df_to_save.to_csv(path + '/data.csv', index=False)
 
 
 # 파일 경로와 피크 파장, 적당히 잘 입력 바람
