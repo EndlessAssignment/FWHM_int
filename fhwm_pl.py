@@ -1,3 +1,4 @@
+from typing import Any
 import pandas as pd
 from glob import glob
 from heapq import nsmallest
@@ -5,7 +6,7 @@ import numpy as np
 
 
 # 반치폭, 반치폭의 광파워, 피크 파장 구하는 클래스
-class calc:
+class Calc:
     def __init__(self, y_values_temp, x_values_temp):
         # array 형태의 x,y 값을 리스트화
         self.x_values, self.y_values, self.temp_l, self.temp_r = [], [], [], []
@@ -25,8 +26,8 @@ class calc:
         self.y_l_temp = self.y_values[0:self.y_values.index(self.peak_height)]
 
         # 피크 왼쪽과 오른쪽에서 각각 피크 절반에 가장 가까운 값을 찾는다
-        self.y_r = nsmallest(1, self.y_r_temp, key=lambda x: abs(x - self.half_peak_height))
-        self.y_l = nsmallest(1, self.y_l_temp, key=lambda x: abs(x - self.half_peak_height))
+        self.y_r = nsmallest(1, self.y_r_temp, key=lambda a: abs(a - self.half_peak_height))
+        self.y_l = nsmallest(1, self.y_l_temp, key=lambda b: abs(b - self.half_peak_height))
 
         # 아까 찾은 두 값에 대응하는 x 값을 찾는다
         self.temp_l.append(self.x_values[self.y_l_temp.index(self.y_l[0])])
@@ -56,9 +57,11 @@ class calc:
 
 
 # 불러온 데이터들 저장하는 함수
+# noinspection PyArgumentList
 def data_save(folder, peak, laser):
     data = []
     file = glob(folder + '/spec/*mw.xlsx', recursive=True)
+    i: str | bytes | Any
     for i in file:
         try:
             df_temp = pd.read_excel(i)
@@ -67,8 +70,8 @@ def data_save(folder, peak, laser):
             y = list(df['Unnamed: 1'])  # 인텐시티
 
             # 피크 파장과 레이저 광 사이에서 최솟값을 찾는다
-            p_approx = nsmallest(1, x, key=lambda x: abs(x-peak))[0]
-            l_approx = nsmallest(1, x, key=lambda x: abs(x-laser))[0]
+            p_approx = nsmallest(1, x, key=lambda c: abs(c-peak))[0]
+            l_approx = nsmallest(1, x, key=lambda d: abs(d-laser))[0]
             y_temp = y[x.index(l_approx):x.index(p_approx)]
             point_temp = y_temp.index(min(y_temp))
             point = point_temp + x.index(l_approx)
@@ -80,7 +83,7 @@ def data_save(folder, peak, laser):
             power = float(i[i.index('\\')+1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
 
             # 클래스를 이용해서 리스트화
-            temp = calc(intensity, wavelength)
+            temp = Calc(intensity, wavelength)
             result = [power, temp.power() / time, temp.fwhm(), temp.peak(), 1240 / temp.peak()]
             data.append(result)
 
