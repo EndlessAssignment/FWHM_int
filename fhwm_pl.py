@@ -69,7 +69,9 @@ def data_save(folder, peak, laser):
             # 피크 파장과 레이저 광 사이에서 최솟값을 찾는다
             p_approx = nsmallest(1, x, key=lambda x: abs(x-peak))[0]
             l_approx = nsmallest(1, x, key=lambda x: abs(x-laser))[0]
-            point = y.index(min(y[x.index(l_approx):x.index(p_approx)]))
+            y_temp = y[x.index(l_approx):x.index(p_approx)]
+            point_temp = y_temp.index(min(y_temp))
+            point = point_temp + x.index(l_approx)
 
             # 최소값 이후 값들만 LED 광량이라고 추측
             wavelength = np.array(x[point:])
