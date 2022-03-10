@@ -100,5 +100,5 @@ def data_save(folder, peak, laser):
 
 
 # 파일 경로와 피크 파장, 적당히 잘 입력 바람
-path = 'C:/Users/PJH/Desktop/연구실/실험데이터/PL/220228/300K'
+path = 'C:/Users/PJH/Desktop/연구실/실험데이터/PL/220308/100K'
 data_save(path, 450, 405)
