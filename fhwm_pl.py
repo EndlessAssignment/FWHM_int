@@ -61,6 +61,7 @@ class Calc:
 # noinspection PyArgumentList
 def data_save(folder, peak, laser):
     temp_list = os.listdir(folder)
+    df_total = pd.DataFrame()
     for k in temp_list:
         data = []
         file = glob(folder + '/' + k + '/spec/*mw.xlsx', recursive=True)
@@ -96,7 +97,7 @@ def data_save(folder, peak, laser):
 
         # 데이터 프레임 화
         dt_array = np.array(data)
-        names = ['Excitation Power (mW)', 'light Output Power (a.u.)', 'FWHM (nm)',
+        names = ['Excitation Power (mW)' + k, 'light Output Power (a.u.)', 'FWHM (nm)',
                  'Peak Wavelength (nm)', 'Photon Energy (eV)']
         df_data = pd.DataFrame(dt_array, columns=names)
 
@@ -105,6 +106,10 @@ def data_save(folder, peak, laser):
 
         # 저장
         df_to_save.to_csv(folder + '/' + k + '/' + k + '_PL.csv', index=False)
+
+        df_total = pd.concat([df_total, df_to_save], axis=1)
+
+    df_total.to_csv(folder + '/data.csv', index=False)
 
 
 # 파일 경로와 피크 파장, 적당히 잘 입력 바람
