@@ -1,4 +1,3 @@
-from typing import Any
 import pandas as pd
 from glob import glob
 from heapq import nsmallest
@@ -57,58 +56,71 @@ class Calc:
         return self.x_values[self.y_values.index(self.peak_height)]
 
 
-# 불러온 데이터들 저장하는 함수
-# noinspection PyArgumentList
+# 경로에서 데이터를 추출하는 함수
+def data_extract(folder, temperature, peak, laser):
+    data = []
+    file = glob(folder + '/' + temperature + '/spec/*mw.xlsx', recursive=True)
+    for i in file:
+        try:
+            df_temp = pd.read_excel(i)
+            df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
+            x = list(df['Filename-->'])  # 파장
+            y = list(df['Unnamed: 1'])  # 인텐시티
+
+            # 피크 파장과 레이저 광 사이에서 최솟값을 찾는다
+            p_approx = nsmallest(1, x, key=lambda c: abs(c - peak))[0]
+            l_approx = nsmallest(1, x, key=lambda d: abs(d - laser))[0]
+            y_temp = y[x.index(l_approx):x.index(p_approx)]
+            point_temp = y_temp.index(min(y_temp))
+            point = point_temp + x.index(l_approx)
+
+            # 최소값 이후 값들만 LED 광량이라고 추측
+            wavelength = np.array(x[point:])
+            intensity = np.array(y[point:])
+            time = df_temp['Unnamed: 1'][1]  # 적분시간
+            laser_power = float(i[i.index('\\') + 1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
+
+            # 클래스를 이용해서 리스트화
+            temp = Calc(intensity, wavelength)
+            lop = temp.power() / time
+            result = [laser_power, lop, temp.fwhm(), temp.peak(), 1240 / temp.peak(), lop / laser_power]
+            data.append(result)
+
+        except:
+            # 오류 발생시 경로와 파워 출력
+            print(path, i)
+
+    return data
+
+
+# 계산된 데이터를 어레이로 변환하는 함수
+def data_array(data, folder,temperature, df_initial):
+    dt_array = np.array(data)
+    names = ['Excitation Power (mW) - ' + temperature, 'light Output Power (a.u.)', 'FWHM (nm)',
+             'Peak Wavelength (nm)', 'Photon Energy (eV)', 'EQE (a.u.)']
+    df_data = pd.DataFrame(dt_array, columns=names)
+
+    # 레이저 파워에 대해 오름차순으로 정렬
+    df_to_save = df_data.sort_values(by=df_data.columns[0])
+
+    # 바로 저장하는 파일은 각 온도별 PL 데이터
+    df_to_save.to_csv(folder + '/' + temperature + '/' + temperature + '_PL.csv', index=False)
+
+    # 통합 데이터는 합쳐서 할당 해준다
+    df_initial = pd.concat([df_initial, df_to_save], axis=1)
+
+    return df_initial
+
+
+# 불러온 데이터를 저장하는 함수
 def data_save(folder, peak, laser):
     temp_list = os.listdir(folder)
     df_total = pd.DataFrame()
     for k in temp_list:
-        if k != "data.csv":
-            data = []
-            file = glob(folder + '/' + k + '/spec/*mw.xlsx', recursive=True)
-            i: str | bytes | Any
-            for i in file:
-                try:
-                    df_temp = pd.read_excel(i)
-                    df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
-                    x = list(df['Filename-->'])  # 파장
-                    y = list(df['Unnamed: 1'])  # 인텐시티
-
-                    # 피크 파장과 레이저 광 사이에서 최솟값을 찾는다
-                    p_approx = nsmallest(1, x, key=lambda c: abs(c-peak))[0]
-                    l_approx = nsmallest(1, x, key=lambda d: abs(d-laser))[0]
-                    y_temp = y[x.index(l_approx):x.index(p_approx)]
-                    point_temp = y_temp.index(min(y_temp))
-                    point = point_temp + x.index(l_approx)
-
-                    # 최소값 이후 값들만 LED 광량이라고 추측
-                    wavelength = np.array(x[point:])
-                    intensity = np.array(y[point:])
-                    time = df_temp['Unnamed: 1'][1]  # 적분시간
-                    laser_power = float(i[i.index('\\') + 1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
-
-                    # 클래스를 이용해서 리스트화
-                    temp = Calc(intensity, wavelength)
-                    lop = temp.power() / time
-                    result = [laser_power, lop, temp.fwhm(), temp.peak(), 1240 / temp.peak(), lop / laser_power]
-                    data.append(result)
-
-                except:
-                    # 오류 발생시 파워 출력
-                    print(i)
-
+        if k != "data.csv": # 한번 더 돌렸을 때 오류 방지용
+            data = data_extract(folder, k, peak, laser)
             # 데이터 프레임 화
-            dt_array = np.array(data)
-            names = ['Excitation Power (mW) - ' + k, 'light Output Power (a.u.)', 'FWHM (nm)',
-                     'Peak Wavelength (nm)', 'Photon Energy (eV)', 'EQE (a.u.)']
-            df_data = pd.DataFrame(dt_array, columns=names)
-
-            # 레이저 파워에 대해 오름차순으로 정렬
-            df_to_save = df_data.sort_values(by=df_data.columns[0])
-
-            # 저장
-            df_to_save.to_csv(folder + '/' + k + '/' + k + '_PL.csv', index=False)
-            df_total = pd.concat([df_total, df_to_save], axis=1)
+            df_total = data_array(data, folder, k, df_total)
 
     df_total.to_csv(folder + '/data.csv', index=False)
 
