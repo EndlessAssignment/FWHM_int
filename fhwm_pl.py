@@ -57,11 +57,13 @@ class Calc:
 
 
 # 경로에서 데이터를 추출하여 계산하는 함수
+# noinspection PyBroadException
 def data_extract(folder, temperature, peak, laser):
     data = []
     file = glob(folder + '/' + temperature + '/spec/*mw.xlsx', recursive=True)
     for i in file:
         try:
+            # noinspection PyArgumentList
             df_temp = pd.read_excel(i)
             df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
             x = list(df['Filename-->'])  # 파장
