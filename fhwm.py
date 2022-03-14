@@ -5,7 +5,7 @@ import numpy as np
 
 
 # 반치폭, 반치폭의 광파워, 피크 파장 구하는 클래스
-class calc:
+class Calc:
     def __init__(self, y_values_temp, x_values_temp):
         # array 형태의 x,y 값을 리스트화
         self.x_values, self.y_values, self.temp_l, self.temp_r = [], [], [], []
@@ -25,8 +25,8 @@ class calc:
         self.y_l_temp = self.y_values[0:self.y_values.index(self.peak_height)]
 
         # 피크 왼쪽과 오른쪽에서 각각 피크 절반에 가장 가까운 값을 찾는다
-        self.y_r = nsmallest(1, self.y_r_temp, key=lambda x: abs(x - self.half_peak_height))
-        self.y_l = nsmallest(1, self.y_l_temp, key=lambda x: abs(x - self.half_peak_height))
+        self.y_r = nsmallest(1, self.y_r_temp, key=lambda a: abs(a - self.half_peak_height))
+        self.y_l = nsmallest(1, self.y_l_temp, key=lambda b: abs(b - self.half_peak_height))
 
         # 아까 찾은 두 값에 대응하는 x 값을 찾는다
         self.temp_l.append(self.x_values[self.y_l_temp.index(self.y_l[0])])
@@ -55,50 +55,70 @@ class calc:
         return self.x_values[self.y_values.index(self.peak_height)]
 
 
-# 불러온 데이터들 저장하는 함수
-def data_save(folder, peak, laser):
+# 경로에서 데이터를 추출하여 계산하는 함수
+# noinspection PyBroadException
+def data_extract(folder, peak, laser):
     data = []
     file = glob(folder + '/spec/*mw.xlsx', recursive=True)
     for i in file:
         try:
+            # noinspection PyArgumentList
             df_temp = pd.read_excel(i)
             df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
             x = list(df['Filename-->'])  # 파장
             y = list(df['Unnamed: 1'])  # 인텐시티
 
             # 피크 파장과 레이저 광 사이에서 최솟값을 찾는다
-            p_approx = nsmallest(1, x, key=lambda x: abs(x-peak))[0]
-            l_approx = nsmallest(1, x, key=lambda x: abs(x-laser))[0]
-            point = y.index(min(y[x.index(l_approx):x.index(p_approx)]))
+            p_approx = nsmallest(1, x, key=lambda c: abs(c - peak))[0]
+            l_approx = nsmallest(1, x, key=lambda d: abs(d - laser))[0]
+            y_temp = y[x.index(l_approx):x.index(p_approx)]
+            point_temp = y_temp.index(min(y_temp))
+            point = point_temp + x.index(l_approx)
 
             # 최소값 이후 값들만 LED 광량이라고 추측
             wavelength = np.array(x[point:])
             intensity = np.array(y[point:])
             time = df_temp['Unnamed: 1'][1]  # 적분시간
-            power = float(i[i.index('\\')+1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
+            laser_power = float(i[i.index('\\') + 1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
 
             # 클래스를 이용해서 리스트화
-            temp = calc(intensity, wavelength)
-            result = [power, temp.power() / time, temp.fwhm(), temp.peak(), 1240 / temp.peak()]
+            temp = Calc(intensity, wavelength)
+            lop = temp.power() / time
+            result = [laser_power, lop, temp.fwhm(), temp.peak(), 1240 / temp.peak(), lop / laser_power]
             data.append(result)
 
         except:
-            # 오류 발생시 파워 출력
+            # 오류 발생시 경로와 파워 출력
             print(i)
 
-    # 데이터 프레임 화
+    return data
+
+
+# 계산된 데이터를 어레이로 변환하는 함수
+def data_array(data, folder):
     dt_array = np.array(data)
-    names = ['Excitation Power (mW)', 'light Output Power (a.u.)', 'FWHM (nm)',
-             'Peak Wavelength (nm)', 'Photon Energy (eV)']
+    names = ['Excitation Power (mW)', 'Light Output Power (a.u.)', 'FWHM (nm)',
+             'Peak Wavelength (nm)', 'Photon Energy (eV)', 'EQE (a.u.)']
     df_data = pd.DataFrame(dt_array, columns=names)
 
-    # 파워에 대해 오름차순으로 정렬
+    # 레이저 파워에 대해 오름차순으로 정렬
     df_to_save = df_data.sort_values(by=df_data.columns[0])
 
+    title = folder.split('/')[-1]
+
     # 저장
-    df_to_save.to_csv(path + '/data.csv', index=False)
+    df_to_save.to_csv(folder + '/' + title + '.csv', index=False)
+
+
+# 어레이를 csv 파일로 저장하는 함수
+def data_save(folder, peak, laser):
+
+    data = data_extract(folder, peak, laser)
+    # 데이터 프레임 화
+
+    data_array(data, folder)
 
 
 # 파일 경로와 피크 파장, 적당히 잘 입력 바람
-path = 'C:/Users/PJH/Desktop/연구실/실험데이터/PL/220308/100K'
+path = 'C:/Users/PJH/Desktop/연구실/실험데이터/PL/220314/test2'
 data_save(path, 450, 405)
