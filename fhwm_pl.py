@@ -63,51 +63,52 @@ def data_save(folder, peak, laser):
     temp_list = os.listdir(folder)
     df_total = pd.DataFrame()
     for k in temp_list:
-        data = []
-        file = glob(folder + '/' + k + '/spec/*mw.xlsx', recursive=True)
-        i: str | bytes | Any
-        for i in file:
-            try:
-                df_temp = pd.read_excel(i)
-                df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
-                x = list(df['Filename-->'])  # 파장
-                y = list(df['Unnamed: 1'])  # 인텐시티
+        if k != "data.csv":
+            data = []
+            file = glob(folder + '/' + k + '/spec/*mw.xlsx', recursive=True)
+            i: str | bytes | Any
+            for i in file:
+                try:
+                    df_temp = pd.read_excel(i)
+                    df = df_temp.drop(index=[0, 1, 2, 3, 4], axis=0)  # 측정 데이터가 없는 행들을 잘라냄
+                    x = list(df['Filename-->'])  # 파장
+                    y = list(df['Unnamed: 1'])  # 인텐시티
 
-                # 피크 파장과 레이저 광 사이에서 최솟값을 찾는다
-                p_approx = nsmallest(1, x, key=lambda c: abs(c-peak))[0]
-                l_approx = nsmallest(1, x, key=lambda d: abs(d-laser))[0]
-                y_temp = y[x.index(l_approx):x.index(p_approx)]
-                point_temp = y_temp.index(min(y_temp))
-                point = point_temp + x.index(l_approx)
+                    # 피크 파장과 레이저 광 사이에서 최솟값을 찾는다
+                    p_approx = nsmallest(1, x, key=lambda c: abs(c-peak))[0]
+                    l_approx = nsmallest(1, x, key=lambda d: abs(d-laser))[0]
+                    y_temp = y[x.index(l_approx):x.index(p_approx)]
+                    point_temp = y_temp.index(min(y_temp))
+                    point = point_temp + x.index(l_approx)
 
-                # 최소값 이후 값들만 LED 광량이라고 추측
-                wavelength = np.array(x[point:])
-                intensity = np.array(y[point:])
-                time = df_temp['Unnamed: 1'][1]  # 적분시간
-                power = float(i[i.index('\\')+1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
+                    # 최소값 이후 값들만 LED 광량이라고 추측
+                    wavelength = np.array(x[point:])
+                    intensity = np.array(y[point:])
+                    time = df_temp['Unnamed: 1'][1]  # 적분시간
+                    laser_power = float(i[i.index('\\') + 1:i.index('mW')])  # LD 파워, 파일 이름에서 추출했음
 
-                # 클래스를 이용해서 리스트화
-                temp = Calc(intensity, wavelength)
-                result = [power, temp.power() / time, temp.fwhm(), temp.peak(), 1240 / temp.peak()]
-                data.append(result)
+                    # 클래스를 이용해서 리스트화
+                    temp = Calc(intensity, wavelength)
+                    lop = temp.power() / time
+                    result = [laser_power, lop, temp.fwhm(), temp.peak(), 1240 / temp.peak(), lop / laser_power]
+                    data.append(result)
 
-            except:
-                # 오류 발생시 파워 출력
-                print(i)
+                except:
+                    # 오류 발생시 파워 출력
+                    print(i)
 
-        # 데이터 프레임 화
-        dt_array = np.array(data)
-        names = ['Excitation Power (mW)' + k, 'light Output Power (a.u.)', 'FWHM (nm)',
-                 'Peak Wavelength (nm)', 'Photon Energy (eV)']
-        df_data = pd.DataFrame(dt_array, columns=names)
+            # 데이터 프레임 화
+            dt_array = np.array(data)
+            names = ['Excitation Power (mW) - ' + k, 'light Output Power (a.u.)', 'FWHM (nm)',
+                     'Peak Wavelength (nm)', 'Photon Energy (eV)', 'EQE (a.u.)']
+            df_data = pd.DataFrame(dt_array, columns=names)
 
-        # 파워에 대해 오름차순으로 정렬
-        df_to_save = df_data.sort_values(by=df_data.columns[0])
+            # 레이저 파워에 대해 오름차순으로 정렬
+            df_to_save = df_data.sort_values(by=df_data.columns[0])
 
-        # 저장
-        df_to_save.to_csv(folder + '/' + k + '/' + k + '_PL.csv', index=False)
-
-        df_total = pd.concat([df_total, df_to_save], axis=1)
+            # 저장
+            df_to_save.to_csv(folder + '/' + k + '/' + k + '_PL.csv', index=False)
+            df_total = pd.concat([df_total, df_to_save], axis=1)
 
     df_total.to_csv(folder + '/data.csv', index=False)
 
